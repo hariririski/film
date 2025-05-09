@@ -32,7 +32,7 @@ def download_from_gdrive(file_id, dest_path):
     url = f"https://drive.google.com/uc?id={file_id}"
     gdown.download(url, dest_path, quiet=False)
 
-@@st.cache_resource
+@st.cache_resource
 def prepare_files():
     # Cek apakah model sudah diekstrak
     model_file = os.path.join(MODEL_PATH, "pytorch_model.bin")
