@@ -53,17 +53,25 @@ def save_response_content(response, destination, chunk_size=32768):
 # === Ekstrak dan Siapkan File ===
 @st.cache_resource
 def prepare_files():
-    if not os.path.exists(os.path.join(MODEL_PATH, 'config.json')):
-        with st.spinner("📥 Mendownload model dari HuggingFace..."):
+    # Pastikan direktori siap
+    os.makedirs(MODEL_PATH, exist_ok=True)
+
+    # === Unduh model langsung dari HuggingFace ===
+    if not os.path.exists(os.path.join(MODEL_PATH, "config.json")):
+        with st.spinner("📥 Sedang mengunduh model dari HuggingFace (harap tunggu ±1-2 menit)..."):
             snapshot_download(
                 repo_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-                local_dir=MODEL_PATH,
-                
+                local_dir=MODEL_PATH
             )
+        st.success("✅ Model berhasil diunduh dan siap digunakan.")
+
+    # === Download file embedding dan dataset ===
     if not os.path.exists(BERT_PKL):
-        download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
+        with st.spinner("📦 Mengunduh embedding..."):
+            download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
     if not os.path.exists(MOVIE_FILE):
-        download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
+        with st.spinner("📦 Mengunduh dataset..."):
+            download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
 
 prepare_files()
 
