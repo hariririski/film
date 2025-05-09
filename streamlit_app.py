@@ -34,13 +34,29 @@ def download_from_gdrive(file_id, dest_path):
 
 @st.cache_resource
 def prepare_files():
-    os.makedirs(DATASET_PATH, exist_ok=True)
-    zip_path = os.path.join(DATASET_PATH, "model.zip")
-    download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
-    with ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(MODEL_PATH)
-    download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
-    download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
+    if not os.path.exists(os.path.join(MODEL_PATH, "pytorch_model.bin")):
+        st.warning("🔄 Mengunduh dan mengekstrak model BERT dari Google Drive...")
+        zip_path = os.path.join(DATASET_PATH, "model.zip")
+        download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
+
+        # Validasi apakah file ZIP valid
+        try:
+            with ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(MODEL_PATH)
+        except Exception as e:
+            st.error("❌ Gagal membuka ZIP model BERT. File mungkin corrupt atau belum selesai diupload.")
+            st.stop()
+
+    # Unduh embedding dan dataset jika belum ada
+    if not os.path.exists(BERT_PKL):
+        download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
+    if not os.path.exists(MOVIE_FILE):
+        download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
+
+    # Cek apakah file model berhasil diekstrak
+    if not os.path.exists(os.path.join(MODEL_PATH, "pytorch_model.bin")):
+        st.error("❌ Model BERT belum berhasil diekstrak. File 'pytorch_model.bin' tidak ditemukan.")
+        st.stop()
 
 prepare_files()
 
