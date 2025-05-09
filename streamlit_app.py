@@ -32,30 +32,38 @@ def download_from_gdrive(file_id, dest_path):
     url = f"https://drive.google.com/uc?id={file_id}"
     gdown.download(url, dest_path, quiet=False)
 
-@st.cache_resource
+@@st.cache_resource
 def prepare_files():
-    if not os.path.exists(os.path.join(MODEL_PATH, "pytorch_model.bin")):
-        st.warning("🔄 Mengunduh dan mengekstrak model BERT dari Google Drive...")
+    # Cek apakah model sudah diekstrak
+    model_file = os.path.join(MODEL_PATH, "pytorch_model.bin")
+    if not os.path.exists(model_file):
+        st.warning("📦 Mengunduh dan mengekstrak model BERT...")
         zip_path = os.path.join(DATASET_PATH, "model.zip")
-        download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
 
-        # Validasi apakah file ZIP valid
+        # Download ZIP hanya jika belum ada
+        if not os.path.exists(zip_path):
+            download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
+
         try:
             with ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(MODEL_PATH)
         except Exception as e:
-            st.error("❌ Gagal membuka ZIP model BERT. File mungkin corrupt atau belum selesai diupload.")
+            st.error("❌ Gagal membuka ZIP model. File mungkin corrupt.")
             st.stop()
 
-    # Unduh embedding dan dataset jika belum ada
+    # Download .pkl jika belum ada
     if not os.path.exists(BERT_PKL):
+        st.warning("📥 Mengunduh embedding...")
         download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
+
+    # Download dataset jika belum ada
     if not os.path.exists(MOVIE_FILE):
+        st.warning("📥 Mengunduh dataset film...")
         download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
 
-    # Cek apakah file model berhasil diekstrak
-    if not os.path.exists(os.path.join(MODEL_PATH, "pytorch_model.bin")):
-        st.error("❌ Model BERT belum berhasil diekstrak. File 'pytorch_model.bin' tidak ditemukan.")
+    # Validasi setelah semua
+    if not os.path.exists(model_file):
+        st.error("❌ Model belum berhasil diekstrak. 'pytorch_model.bin' tidak ditemukan.")
         st.stop()
 
 prepare_files()
