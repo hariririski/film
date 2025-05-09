@@ -1,67 +1,44 @@
 import streamlit as st
 import os
-import requests
 import pandas as pd
-import pickle
 import numpy as np
 import faiss
+import pickle
+import requests
+from zipfile import ZipFile
 from sentence_transformers import SentenceTransformer
 from deep_translator import GoogleTranslator
 import matplotlib.pyplot as plt
-from zipfile import ZipFile, BadZipFile
+import gdown
 
-# === Konfigurasi Google Drive File IDs ===
-DRIVE_IDS = {
-    "model_zip": "1PVr-OcmV8-HQTkDJW3IVb7M5KD6bWHMV",     # multilingual_bert.zip
-    "embedding": "1JSe5M7qgCfINDt9sXDxptAsEtjs4ppzD",     # rich_movie_embeddings.pkl
-    "dataset": "1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT",        # imdb_tmdb_Sempurna.parquet
-}
-
+# === Konstanta dan Path ===
+TMDB_API_KEY = "1ec75235bb4ad6c9a7d6b6b8eac6d44e"
 DATASET_PATH = "imdb/"
 MODEL_PATH = os.path.join(DATASET_PATH, "multilingual_bert/")
 BERT_PKL = os.path.join(DATASET_PATH, "rich_movie_embeddings.pkl")
 MOVIE_FILE = os.path.join(DATASET_PATH, "imdb_tmdb_Sempurna.parquet")
-TMDB_API_KEY = "1ec75235bb4ad6c9a7d6b6b8eac6d44e"
 PLACEHOLDER_IMAGE = "https://www.jakartaplayers.org/uploads/1/2/5/5/12551960/9585972.jpg?1453219647"
 TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
-os.makedirs(DATASET_PATH, exist_ok=True)
+# === File Google Drive IDs ===
+DRIVE_IDS = {
+    "model_zip": "1PVr-OcmV8-HQTkDJW3IVb7M5KD6bWHMV",
+    "embedding": "1JSe5M7qgCfINDt9sXDxptAsEtjs4ppzD",
+    "dataset": "1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT",
+}
 
-# === Fungsi Unduh dari Google Drive ===
+# === Download dari Google Drive ===
 def download_from_gdrive(file_id, dest_path):
-    URL = "https://drive.google.com/uc?export=download"
-    session = requests.Session()
-    response = session.get(URL, params={'id': file_id}, stream=True)
-    token = get_confirm_token(response)
-    if token:
-        params = {'id': file_id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True)
-    save_response_content(response, dest_path)
+    url = f"https://drive.google.com/uc?id={file_id}"
+    gdown.download(url, dest_path, quiet=False)
 
-def get_confirm_token(response):
-    for key, value in response.cookies.items():
-        if key.startswith('download_warning'):
-            return value
-    return None
-
-def save_response_content(response, destination, chunk_size=32768):
-    with open(destination, "wb") as f:
-        for chunk in response.iter_content(chunk_size):
-            if chunk:
-                f.write(chunk)
-
-# === Unduh dan Ekstrak File ===
 @st.cache_resource
 def prepare_files():
+    os.makedirs(DATASET_PATH, exist_ok=True)
     zip_path = os.path.join(DATASET_PATH, "model.zip")
     download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
-    try:
-        with ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(MODEL_PATH)
-    except BadZipFile:
-        st.error("❌ Gagal membuka ZIP model BERT. File mungkin corrupt atau belum selesai diupload. Periksa kembali file Google Drive-nya.")
-        st.stop()
-
+    with ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(MODEL_PATH)
     download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
     download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
 
@@ -74,7 +51,7 @@ def load_data():
 
 df_movies = load_data()
 
-# === Load Model dan Embedding ===
+# === Load Model & Embeddings ===
 @st.cache_resource
 def load_model():
     return SentenceTransformer(MODEL_PATH)
@@ -87,13 +64,13 @@ def load_embeddings():
 model = load_model()
 bert_embeddings = load_embeddings()
 
-# === FAISS Index ===
+# === Build FAISS Index ===
 d = bert_embeddings.shape[1]
 index = faiss.IndexFlatIP(d)
 faiss.normalize_L2(bert_embeddings)
 index.add(bert_embeddings)
 
-# === Ambil Detail Film dari TMDb ===
+# === TMDb Fetch ===
 def get_movie_details(imdb_id):
     url = f"https://api.themoviedb.org/3/find/{imdb_id}?api_key={TMDB_API_KEY}&external_source=imdb_id"
     try:
@@ -109,18 +86,17 @@ def get_movie_details(imdb_id):
         pass
     return "Sinopsis tidak tersedia", PLACEHOLDER_IMAGE
 
-# === Terjemah Bahasa Indonesia ===
 def translate_text(text):
     try:
         return GoogleTranslator(source='auto', target='id').translate(text) if text else text
     except:
         return text
 
-# === Cari Rekomendasi ===
+# === Rekomendasi ===
 def search_bert(query, top_n=10, genre=None, min_year=None, max_year=None, min_rating=None):
     q_embed = model.encode([query], normalize_embeddings=True)
     if q_embed.shape[1] != index.d:
-        st.error(f"❌ Dimensi embedding query ({q_embed.shape[1]}) tidak cocok dengan index ({index.d})")
+        st.error(f"❌ Dimensi query ({q_embed.shape[1]}) tidak cocok dengan index ({index.d})")
         st.stop()
 
     distances, indices = index.search(q_embed, top_n * 3)
@@ -131,7 +107,6 @@ def search_bert(query, top_n=10, genre=None, min_year=None, max_year=None, min_r
         if min_year and int(movie["startYear"]) < min_year: continue
         if max_year and int(movie["startYear"]) > max_year: continue
         if min_rating and float(movie["averageRating"]) < min_rating: continue
-
         score = 1 - distances[0][i]
         results.append((movie, score))
         if len(results) >= top_n:
@@ -139,7 +114,9 @@ def search_bert(query, top_n=10, genre=None, min_year=None, max_year=None, min_r
     results.sort(key=lambda x: x[1], reverse=True)
     return results
 
+
 # === Sidebar Navigasi ===
+st.set_page_config(layout="wide")
 menu = st.sidebar.radio("Menu Halaman", ("Rekomendasi", "Dashboard", "About"))
 
 
