@@ -26,12 +26,28 @@ os.makedirs(DATASET_PATH, exist_ok=True)
 
 # === Fungsi Unduh dari Google Drive ===
 def download_from_gdrive(file_id, dest_path):
-    if os.path.exists(dest_path):
-        return
-    url = f"https://drive.google.com/uc?export=download&id={file_id}"
-    with requests.get(url, stream=True) as r:
-        with open(dest_path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
+    URL = "https://drive.google.com/uc?export=download"
+
+    session = requests.Session()
+    response = session.get(URL, params={'id': file_id}, stream=True)
+    token = get_confirm_token(response)
+
+    if token:
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+
+    save_response_content(response, dest_path)
+
+def get_confirm_token(response):
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+    return None
+
+def save_response_content(response, destination, chunk_size=32768):
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(chunk_size):
+            if chunk:
                 f.write(chunk)
 
 # === Unduh dan Ekstrak File ===
