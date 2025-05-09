@@ -58,7 +58,7 @@ def prepare_files():
             snapshot_download(
                 repo_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
                 local_dir=MODEL_PATH,
-                local_dir_use_symlinks=False
+                
             )
     if not os.path.exists(BERT_PKL):
         download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
