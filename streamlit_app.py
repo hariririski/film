@@ -8,34 +8,34 @@ import faiss
 from sentence_transformers import SentenceTransformer
 from deep_translator import GoogleTranslator
 import matplotlib.pyplot as plt
-from zipfile import ZipFile
+from zipfile import ZipFile, BadZipFile
 
 # === Konfigurasi Google Drive File IDs ===
 DRIVE_IDS = {
     "model_zip": "1PVr-OcmV8-HQTkDJW3IVb7M5KD6bWHMV",     # multilingual_bert.zip
     "embedding": "1JSe5M7qgCfINDt9sXDxptAsEtjs4ppzD",     # rich_movie_embeddings.pkl
-    "dataset": "1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT",   # imdb_tmdb_Sempurna.parquet
+    "dataset": "1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT",        # imdb_tmdb_Sempurna.parquet
 }
 
 DATASET_PATH = "imdb/"
 MODEL_PATH = os.path.join(DATASET_PATH, "multilingual_bert/")
 BERT_PKL = os.path.join(DATASET_PATH, "rich_movie_embeddings.pkl")
 MOVIE_FILE = os.path.join(DATASET_PATH, "imdb_tmdb_Sempurna.parquet")
+TMDB_API_KEY = "1ec75235bb4ad6c9a7d6b6b8eac6d44e"
+PLACEHOLDER_IMAGE = "https://www.jakartaplayers.org/uploads/1/2/5/5/12551960/9585972.jpg?1453219647"
+TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
 os.makedirs(DATASET_PATH, exist_ok=True)
 
 # === Fungsi Unduh dari Google Drive ===
 def download_from_gdrive(file_id, dest_path):
     URL = "https://drive.google.com/uc?export=download"
-
     session = requests.Session()
     response = session.get(URL, params={'id': file_id}, stream=True)
     token = get_confirm_token(response)
-
     if token:
         params = {'id': file_id, 'confirm': token}
         response = session.get(URL, params=params, stream=True)
-
     save_response_content(response, dest_path)
 
 def get_confirm_token(response):
@@ -55,8 +55,13 @@ def save_response_content(response, destination, chunk_size=32768):
 def prepare_files():
     zip_path = os.path.join(DATASET_PATH, "model.zip")
     download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
-    with ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(MODEL_PATH)
+    try:
+        with ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(MODEL_PATH)
+    except BadZipFile:
+        st.error("❌ Gagal membuka ZIP model BERT. File mungkin corrupt atau belum selesai diupload. Periksa kembali file Google Drive-nya.")
+        st.stop()
+
     download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
     download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
 
@@ -82,7 +87,11 @@ def load_embeddings():
 model = load_model()
 bert_embeddings = load_embeddings()
 
-# (Lanjutkan kode seperti sebelumnya untuk FAISS, tampilan, dan fungsi pencarian)
+# === FAISS Index ===
+d = bert_embeddings.shape[1]
+index = faiss.IndexFlatIP(d)
+faiss.normalize_L2(bert_embeddings)
+index.add(bert_embeddings)
 
 # === Ambil Detail Film dari TMDb ===
 def get_movie_details(imdb_id):
@@ -127,12 +136,12 @@ def search_bert(query, top_n=10, genre=None, min_year=None, max_year=None, min_r
         results.append((movie, score))
         if len(results) >= top_n:
             break
-     # ⬇️ Tambahkan ini
     results.sort(key=lambda x: x[1], reverse=True)
     return results
 
 # === Sidebar Navigasi ===
 menu = st.sidebar.radio("Menu Halaman", ("Rekomendasi", "Dashboard", "About"))
+
 
 # === Halaman Detail Film ===
 query_params = st.query_params
