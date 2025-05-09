@@ -1,70 +1,68 @@
 import streamlit as st
 import os
-import pandas as pd
-import numpy as np
-import faiss
-import pickle
 import requests
-from zipfile import ZipFile
+import pandas as pd
+import pickle
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from deep_translator import GoogleTranslator
 import matplotlib.pyplot as plt
-import gdown
+from zipfile import ZipFile
+from sklearn.neighbors import NearestNeighbors
 
-# === Konstanta dan Path ===
-TMDB_API_KEY = "1ec75235bb4ad6c9a7d6b6b8eac6d44e"
-DATASET_PATH = "imdb/"
-MODEL_PATH = os.path.join(DATASET_PATH, "multilingual_bert/")
-BERT_PKL = os.path.join(DATASET_PATH, "rich_movie_embeddings.pkl")
-MOVIE_FILE = os.path.join(DATASET_PATH, "imdb_tmdb_Sempurna.parquet")
-PLACEHOLDER_IMAGE = "https://www.jakartaplayers.org/uploads/1/2/5/5/12551960/9585972.jpg?1453219647"
-TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
-
-# === File Google Drive IDs ===
+# === Konfigurasi Google Drive File IDs ===
 DRIVE_IDS = {
     "model_zip": "1PVr-OcmV8-HQTkDJW3IVb7M5KD6bWHMV",
     "embedding": "1JSe5M7qgCfINDt9sXDxptAsEtjs4ppzD",
     "dataset": "1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT",
 }
 
-# === Download dari Google Drive ===
-def download_from_gdrive(file_id, dest_path):
-    url = f"https://drive.google.com/uc?id={file_id}"
-    gdown.download(url, dest_path, quiet=False)
+DATASET_PATH = "imdb/"
+MODEL_PATH = os.path.join(DATASET_PATH, "multilingual_bert/")
+BERT_PKL = os.path.join(DATASET_PATH, "rich_movie_embeddings.pkl")
+MOVIE_FILE = os.path.join(DATASET_PATH, "imdb_tmdb_Sempurna.parquet")
 
+TMDB_API_KEY = "1ec75235bb4ad6c9a7d6b6b8eac6d44e"
+PLACEHOLDER_IMAGE = "https://www.jakartaplayers.org/uploads/1/2/5/5/12551960/9585972.jpg?1453219647"
+TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
+
+os.makedirs(DATASET_PATH, exist_ok=True)
+
+# === Unduh File dari Google Drive ===
+def download_from_gdrive(file_id, dest_path):
+    URL = "https://drive.google.com/uc?export=download"
+    session = requests.Session()
+    response = session.get(URL, params={'id': file_id}, stream=True)
+    token = get_confirm_token(response)
+    if token:
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+    save_response_content(response, dest_path)
+
+def get_confirm_token(response):
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+    return None
+
+def save_response_content(response, destination, chunk_size=32768):
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(chunk_size):
+            if chunk:
+                f.write(chunk)
+
+# === Ekstrak dan Siapkan File ===
 @st.cache_resource
 def prepare_files():
-    # Cek apakah model sudah diekstrak
-    model_file = os.path.join(MODEL_PATH, "pytorch_model.bin")
-    if not os.path.exists(model_file):
-        st.warning("📦 Mengunduh dan mengekstrak model BERT...")
-        zip_path = os.path.join(DATASET_PATH, "model.zip")
-
-        # Download ZIP hanya jika belum ada
-        if not os.path.exists(zip_path):
-            download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
-
-        try:
-            with ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(MODEL_PATH)
-        except Exception as e:
-            st.error("❌ Gagal membuka ZIP model. File mungkin corrupt.")
-            st.stop()
-
-    # Download .pkl jika belum ada
+    zip_path = os.path.join(DATASET_PATH, "model.zip")
+    if not os.path.exists(MODEL_PATH) or not os.listdir(MODEL_PATH):
+        download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
+        with ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(MODEL_PATH)
     if not os.path.exists(BERT_PKL):
-        st.warning("📥 Mengunduh embedding...")
         download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
-
-    # Download dataset jika belum ada
     if not os.path.exists(MOVIE_FILE):
-        st.warning("📥 Mengunduh dataset film...")
         download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
-
-    # Validasi setelah semua
-    if not os.path.exists(model_file):
-        st.error("❌ Model belum berhasil diekstrak. 'pytorch_model.bin' tidak ditemukan.")
-        st.stop()
 
 prepare_files()
 
@@ -75,7 +73,7 @@ def load_data():
 
 df_movies = load_data()
 
-# === Load Model & Embeddings ===
+# === Load Model & Embedding ===
 @st.cache_resource
 def load_model():
     return SentenceTransformer(MODEL_PATH)
@@ -88,13 +86,11 @@ def load_embeddings():
 model = load_model()
 bert_embeddings = load_embeddings()
 
-# === Build FAISS Index ===
-d = bert_embeddings.shape[1]
-index = faiss.IndexFlatIP(d)
-faiss.normalize_L2(bert_embeddings)
-index.add(bert_embeddings)
+# === Scikit-learn Nearest Neighbors Index ===
+nn_model = NearestNeighbors(n_neighbors=30, metric="cosine")
+nn_model.fit(bert_embeddings)
 
-# === TMDb Fetch ===
+# === TMDb Info ===
 def get_movie_details(imdb_id):
     url = f"https://api.themoviedb.org/3/find/{imdb_id}?api_key={TMDB_API_KEY}&external_source=imdb_id"
     try:
@@ -116,14 +112,9 @@ def translate_text(text):
     except:
         return text
 
-# === Rekomendasi ===
 def search_bert(query, top_n=10, genre=None, min_year=None, max_year=None, min_rating=None):
     q_embed = model.encode([query], normalize_embeddings=True)
-    if q_embed.shape[1] != index.d:
-        st.error(f"❌ Dimensi query ({q_embed.shape[1]}) tidak cocok dengan index ({index.d})")
-        st.stop()
-
-    distances, indices = index.search(q_embed, top_n * 3)
+    distances, indices = nn_model.kneighbors(q_embed, n_neighbors=top_n * 3)
     results = []
     for i, idx in enumerate(indices[0]):
         movie = df_movies.iloc[idx]
