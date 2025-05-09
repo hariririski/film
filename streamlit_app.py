@@ -8,18 +8,43 @@ import faiss
 from sentence_transformers import SentenceTransformer
 from deep_translator import GoogleTranslator
 import matplotlib.pyplot as plt
+from zipfile import ZipFile
 
-# === Pengaturan Halaman ===
-st.set_page_config(layout="wide")
+# === Konfigurasi Google Drive File IDs ===
+DRIVE_IDS = {
+    "model_zip": "1PVr-OcmV8-HQTkDJW3IVb7M5KD6bWHMV",     # multilingual_bert.zip
+    "embedding": "1JSe5M7qgCfINDt9sXDxptAsEtjs4ppzD",     # rich_movie_embeddings.pkl
+    "dataset": "1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT",   # imdb_tmdb_Sempurna.parquet
+}
 
-# === Konstanta dan Path ===
-TMDB_API_KEY = "1ec75235bb4ad6c9a7d6b6b8eac6d44e"
 DATASET_PATH = "imdb/"
 MODEL_PATH = os.path.join(DATASET_PATH, "multilingual_bert/")
 BERT_PKL = os.path.join(DATASET_PATH, "rich_movie_embeddings.pkl")
 MOVIE_FILE = os.path.join(DATASET_PATH, "imdb_tmdb_Sempurna.parquet")
-PLACEHOLDER_IMAGE = "https://www.jakartaplayers.org/uploads/1/2/5/5/12551960/9585972.jpg?1453219647"
-TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
+
+os.makedirs(DATASET_PATH, exist_ok=True)
+
+# === Fungsi Unduh dari Google Drive ===
+def download_from_gdrive(file_id, dest_path):
+    if os.path.exists(dest_path):
+        return
+    url = f"https://drive.google.com/uc?export=download&id={file_id}"
+    with requests.get(url, stream=True) as r:
+        with open(dest_path, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+# === Unduh dan Ekstrak File ===
+@st.cache_resource
+def prepare_files():
+    zip_path = os.path.join(DATASET_PATH, "model.zip")
+    download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
+    with ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(MODEL_PATH)
+    download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
+    download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
+
+prepare_files()
 
 # === Load Dataset ===
 @st.cache_data
@@ -41,11 +66,7 @@ def load_embeddings():
 model = load_model()
 bert_embeddings = load_embeddings()
 
-# === FAISS Index ===
-d = bert_embeddings.shape[1]
-index = faiss.IndexFlatIP(d)
-faiss.normalize_L2(bert_embeddings)
-index.add(bert_embeddings)
+# (Lanjutkan kode seperti sebelumnya untuk FAISS, tampilan, dan fungsi pencarian)
 
 # === Ambil Detail Film dari TMDb ===
 def get_movie_details(imdb_id):
