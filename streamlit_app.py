@@ -7,12 +7,11 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from deep_translator import GoogleTranslator
 import matplotlib.pyplot as plt
-from zipfile import ZipFile
 from sklearn.neighbors import NearestNeighbors
+from huggingface_hub import snapshot_download
 
 # === Konfigurasi Google Drive File IDs ===
 DRIVE_IDS = {
-    "model_zip": "1PVr-OcmV8-HQTkDJW3IVb7M5KD6bWHMV",
     "embedding": "1JSe5M7qgCfINDt9sXDxptAsEtjs4ppzD",
     "dataset": "1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT",
 }
@@ -54,11 +53,13 @@ def save_response_content(response, destination, chunk_size=32768):
 # === Ekstrak dan Siapkan File ===
 @st.cache_resource
 def prepare_files():
-    zip_path = os.path.join(DATASET_PATH, "model.zip")
-    if not os.path.exists(MODEL_PATH) or not os.listdir(MODEL_PATH):
-        download_from_gdrive(DRIVE_IDS["model_zip"], zip_path)
-        with ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(MODEL_PATH)
+    if not os.path.exists(os.path.join(MODEL_PATH, 'config.json')):
+        with st.spinner("📥 Mendownload model dari HuggingFace..."):
+            snapshot_download(
+                repo_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+                local_dir=MODEL_PATH,
+                local_dir_use_symlinks=False
+            )
     if not os.path.exists(BERT_PKL):
         download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
     if not os.path.exists(MOVIE_FILE):
@@ -89,6 +90,7 @@ bert_embeddings = load_embeddings()
 # === Scikit-learn Nearest Neighbors Index ===
 nn_model = NearestNeighbors(n_neighbors=30, metric="cosine")
 nn_model.fit(bert_embeddings)
+
 
 # === TMDb Info ===
 def get_movie_details(imdb_id):
