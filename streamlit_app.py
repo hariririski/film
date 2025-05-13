@@ -309,48 +309,67 @@ if menu == "Rekomendasi":
 elif menu == "Dashboard":
     st.title("📊 Statistik Dataset Film")
 
-    # ➕ Tampilkan jumlah total film
     st.markdown(f"**Jumlah total film dalam dataset:** `{len(df_movies):,}` film")
 
     st.subheader("Distribusi Genre Terpopuler")
-    genre_counts = pd.Series(",".join(df_movies["genres"].dropna()).split(",")).value_counts().head(10)
-    fig, ax = plt.subplots()
-    genre_counts.plot(kind="barh", ax=ax)
-    st.pyplot(fig)
+    try:
+        genre_series = df_movies["genres"].dropna().astype(str)
+        genre_counts = pd.Series(",".join(genre_series).split(",")).value_counts().head(10)
+        fig, ax = plt.subplots()
+        genre_counts.plot(kind="barh", ax=ax)
+        st.pyplot(fig)
+    except Exception as e:
+        st.warning(f"Gagal menampilkan distribusi genre: {e}")
 
     st.subheader("Distribusi Tahun Rilis")
-    df_movies["startYear"] = pd.to_numeric(df_movies["startYear"], errors="coerce")
-    fig2, ax2 = plt.subplots()
-    df_movies["startYear"].dropna().astype(int).hist(bins=30, ax=ax2)
-    st.pyplot(fig2)
+    try:
+        df_movies["startYear"] = pd.to_numeric(df_movies["startYear"], errors="coerce")
+        fig2, ax2 = plt.subplots()
+        df_movies["startYear"].dropna().astype(int).hist(bins=30, ax=ax2)
+        st.pyplot(fig2)
+    except Exception as e:
+        st.warning(f"Gagal menampilkan distribusi tahun rilis: {e}")
 
     st.subheader("Distribusi Rating IMDb")
-    fig3, ax3 = plt.subplots()
-    df_movies["averageRating"] = pd.to_numeric(df_movies["averageRating"], errors="coerce")
-    df_movies["averageRating"].dropna().hist(bins=20, ax=ax3)
-    st.pyplot(fig3)
+    try:
+        df_movies["averageRating"] = pd.to_numeric(df_movies["averageRating"], errors="coerce")
+        fig3, ax3 = plt.subplots()
+        df_movies["averageRating"].dropna().hist(bins=20, ax=ax3)
+        st.pyplot(fig3)
+    except Exception as e:
+        st.warning(f"Gagal menampilkan distribusi rating: {e}")
 
     st.subheader("Rata-rata Rating per Genre")
-    genre_ratings = []
-    for genre in genre_counts.index:
-        genre_df = df_movies[df_movies["genres"].str.contains(genre, na=False)]
-        genre_ratings.append((genre, genre_df["averageRating"].mean()))
-    df_genre_rating = pd.DataFrame(genre_ratings, columns=["Genre", "AvgRating"]).sort_values(by="AvgRating", ascending=False)
-    fig4, ax4 = plt.subplots()
-    df_genre_rating.set_index("Genre").plot(kind="barh", ax=ax4, legend=False)
-    st.pyplot(fig4)
+    try:
+        genre_ratings = []
+        for genre in genre_counts.index:
+            genre_df = df_movies[df_movies["genres"].str.contains(genre, na=False)]
+            avg_rating = pd.to_numeric(genre_df["averageRating"], errors="coerce").dropna().mean()
+            genre_ratings.append((genre, avg_rating))
+        df_genre_rating = pd.DataFrame(genre_ratings, columns=["Genre", "AvgRating"]).sort_values(by="AvgRating", ascending=False)
+        fig4, ax4 = plt.subplots()
+        df_genre_rating.set_index("Genre").plot(kind="barh", ax=ax4, legend=False)
+        st.pyplot(fig4)
+    except Exception as e:
+        st.warning(f"Gagal menghitung rata-rata rating genre: {e}")
 
     st.subheader("Top Sutradara")
-    top_directors = df_movies["directors"].value_counts().head(10)
-    fig5, ax5 = plt.subplots()
-    top_directors.plot(kind="barh", ax=ax5)
-    st.pyplot(fig5)
+    try:
+        top_directors = df_movies["directors"].dropna().value_counts().head(10)
+        fig5, ax5 = plt.subplots()
+        top_directors.plot(kind="barh", ax=ax5)
+        st.pyplot(fig5)
+    except Exception as e:
+        st.warning(f"Gagal menampilkan top sutradara: {e}")
 
     st.subheader("Top Aktor")
-    top_actors = df_movies["actors"].value_counts().head(10)
-    fig6, ax6 = plt.subplots()
-    top_actors.plot(kind="barh", ax=ax6)
-    st.pyplot(fig6)
+    try:
+        top_actors = df_movies["actors"].dropna().value_counts().head(10)
+        fig6, ax6 = plt.subplots()
+        top_actors.plot(kind="barh", ax=ax6)
+        st.pyplot(fig6)
+    except Exception as e:
+        st.warning(f"Gagal menampilkan top aktor: {e}")
 
 # === Halaman About ===
 elif menu == "About":
