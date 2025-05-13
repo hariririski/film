@@ -29,14 +29,11 @@ os.makedirs(DATASET_PATH, exist_ok=True)
 
 # === Unduh File dari Google Drive ===
 def download_from_gdrive(file_id, dest_path):
-    URL = "https://drive.google.com/uc?export=download"
-    session = requests.Session()
-    response = session.get(URL, params={'id': file_id}, stream=True)
-    token = get_confirm_token(response)
-    if token:
-        params = {'id': file_id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True)
-    save_response_content(response, dest_path)
+    import subprocess
+    url = f"https://drive.google.com/uc?id={file_id}"
+    result = subprocess.run(["gdown", "--id", file_id, "-O", dest_path])
+    if result.returncode != 0:
+        raise Exception("❌ Gagal mengunduh file dari Google Drive.")
 
 def get_confirm_token(response):
     for key, value in response.cookies.items():
