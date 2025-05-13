@@ -24,16 +24,21 @@ MOVIE_FILE = os.path.join(DATASET_PATH, "imdb_tmdb_Sempurna.parquet")
 TMDB_API_KEY = "1ec75235bb4ad6c9a7d6b6b8eac6d44e"
 PLACEHOLDER_IMAGE = "https://www.jakartaplayers.org/uploads/1/2/5/5/12551960/9585972.jpg?1453219647"
 TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
+# === Konfigurasi HuggingFace URL ===
+HF_EMBEDDING_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/rich_movie_embeddings.pkl"
 
 os.makedirs(DATASET_PATH, exist_ok=True)
 
 # === Unduh File dari Google Drive ===
-def download_from_gdrive(file_id, dest_path):
-    import subprocess
-    url = f"https://drive.google.com/uc?id={file_id}"
-    result = subprocess.run(["gdown", "--id", file_id, "-O", dest_path])
-    if result.returncode != 0:
-        raise Exception("❌ Gagal mengunduh file dari Google Drive.")
+def download_from_huggingface(url, dest_path):
+    response = requests.get(url, stream=True)
+    if response.status_code == 200:
+        with open(dest_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+    else:
+        st.error("❌ Gagal mengunduh dari HuggingFace.")
+        st.stop()
 
 def get_confirm_token(response):
     for key, value in response.cookies.items():
@@ -50,25 +55,26 @@ def save_response_content(response, destination, chunk_size=32768):
 # === Ekstrak dan Siapkan File ===
 @st.cache_resource
 def prepare_files():
-    # Pastikan direktori siap
     os.makedirs(MODEL_PATH, exist_ok=True)
 
-    # === Unduh model langsung dari HuggingFace ===
+    # === Unduh model dari HuggingFace jika belum ada ===
     if not os.path.exists(os.path.join(MODEL_PATH, "config.json")):
-        with st.spinner("📥 Sedang mengunduh model dari HuggingFace (harap tunggu ±1-2 menit)..."):
+        with st.spinner("📥 Mengunduh model dari HuggingFace (±1–2 menit)..."):
             snapshot_download(
                 repo_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
                 local_dir=MODEL_PATH
             )
         st.success("✅ Model berhasil diunduh dan siap digunakan.")
 
-    # === Download file embedding dan dataset ===
+    # === Download rich_movie_embeddings.pkl dari HuggingFace (bukan Google Drive) ===
     if not os.path.exists(BERT_PKL):
-        with st.spinner("📦 Mengunduh embedding..."):
-            download_from_gdrive(DRIVE_IDS["embedding"], BERT_PKL)
+        with st.spinner("📦 Mengunduh embedding dari HuggingFace..."):
+            download_from_huggingface(HF_EMBEDDING_URL, BERT_PKL)
+
+    # === Dataset (boleh tetap dari Google Drive) ===
     if not os.path.exists(MOVIE_FILE):
         with st.spinner("📦 Mengunduh dataset..."):
-            download_from_gdrive(DRIVE_IDS["dataset"], MOVIE_FILE)
+            download_from_gdrive("1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT", MOVIE_FILE)
 
 prepare_files()
 
