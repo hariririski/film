@@ -1,10 +1,11 @@
 import os
+import psutil
+import time
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
 import streamlit as st
 st.set_page_config(layout="wide")  # <-- harus paling atas
 
-import os
 import requests
 import pandas as pd
 import pickle
@@ -112,6 +113,19 @@ prepare_files()
 
 # === Sidebar Navigasi ===
 menu = st.sidebar.radio("Menu Halaman", ("Rekomendasi", "Dashboard", "About"))
+# === RAM Usage Sidebar Info ===
+def display_ram_usage():
+    process = psutil.Process(os.getpid())
+    mem_mb = process.memory_info().rss / 1024 / 1024
+    st.sidebar.markdown(f"🧠 RAM digunakan: `{mem_mb:.2f} MB`")
+
+# Jalankan setiap 5 detik
+if "last_ram_check" not in st.session_state:
+    st.session_state["last_ram_check"] = time.time()
+
+if time.time() - st.session_state["last_ram_check"] > 5:
+    display_ram_usage()
+    st.session_state["last_ram_check"] = time.time()
 
 # Bersihkan cache hasil pencarian dan dataset jika berpindah menu
 prev_menu = st.session_state.get("prev_menu", None)
