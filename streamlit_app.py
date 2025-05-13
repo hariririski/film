@@ -196,6 +196,14 @@ if "movie_id" in query_params:
 
 # === Halaman Rekomendasi ===
 
+prev_menu = st.session_state.get("prev_menu")
+
+if prev_menu and prev_menu != menu:
+    # Reset session state saat berpindah menu
+    st.session_state.pop("results", None)
+    st.session_state.pop("loading", None)
+
+st.session_state["prev_menu"] = menu
 
 if menu == "Rekomendasi":
     st.title("\U0001F3AC Rekomendasi Film IMDb (BERT-Based)")
@@ -391,3 +399,8 @@ elif menu == "About":
     - 2408207010022 – Luthfi Fathurahman
     - 2408207010024 – Teuku Nanda Saputra
     """)
+
+if st.sidebar.button("🔁 Reset Aplikasi"):
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    st.experimental_rerun()
