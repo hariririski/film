@@ -175,6 +175,13 @@ def search_bert(query, top_n=10, genre=None, min_year=None, max_year=None, min_r
 # === Sidebar Navigasi ===
 menu = st.sidebar.radio("Menu Halaman", ("Rekomendasi", "Dashboard", "About"))
 
+# Bersihkan cache hasil pencarian jika berpindah menu
+prev_menu = st.session_state.get("prev_menu", None)
+if prev_menu != menu:
+    st.session_state["prev_menu"] = menu
+    if "results" in st.session_state:
+        del st.session_state["results"]
+
 
 # === Halaman Detail Film ===
 query_params = st.query_params
