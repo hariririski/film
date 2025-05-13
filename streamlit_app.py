@@ -373,6 +373,7 @@ elif menu == "Dashboard":
 
 # === Halaman About ===
 elif menu == "About":
+    st.write("📌 Memuat halaman About...")  # Debug
     st.title("ℹ️ Tentang Aplikasi")
     st.markdown("""
     Aplikasi ini dibuat sebagai bagian dari proyek mata kuliah **Pengembangan Perangkat Lunak dan Manajemen Proyek** pada program studi **Magister Kecerdasan Buatan**.
