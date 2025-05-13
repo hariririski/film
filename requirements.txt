@@ -6,3 +6,4 @@ pandas
 gdown
 sentence-transformers
 streamlit
+psutil
