@@ -117,10 +117,15 @@ menu = st.sidebar.radio("Menu Halaman", ("Rekomendasi", "Dashboard", "About"))
 prev_menu = st.session_state.get("prev_menu", None)
 if prev_menu != menu:
     st.session_state["prev_menu"] = menu
-    if "results" in st.session_state:
+
+    # Auto-clear hasil rekomendasi kalau pindah dari menu "Rekomendasi"
+    if prev_menu == "Rekomendasi" and "results" in st.session_state:
         del st.session_state["results"]
-    if "df_movies" in st.session_state:
-        del st.session_state["df_movies"]
+
+    # Auto-clear dataset kalau pindah dari Dashboard/About ke menu lain
+    if prev_menu in ["Dashboard", "About"] and menu not in ["Dashboard", "About"]:
+        if "df_movies" in st.session_state:
+            del st.session_state["df_movies"]
 
 # === Load Dataset ===
 @st.cache_data
