@@ -1,3 +1,6 @@
+import os
+os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
+
 import streamlit as st
 st.set_page_config(layout="wide")  # <-- harus paling atas
 
@@ -139,8 +142,16 @@ def load_embeddings():
     with open(BERT_PKL, "rb") as f:
         return np.array(pickle.load(f))
 
-model = load_model()
-bert_embeddings = load_embeddings()
+# Model dan embedding dimuat di bagian bawah setelah session_state dicek
+
+# === Cek dan muat model serta embedding dari session_state ===
+if "bert_embeddings" not in st.session_state:
+    st.session_state["bert_embeddings"] = load_embeddings()
+bert_embeddings = st.session_state["bert_embeddings"]
+
+if "model" not in st.session_state:
+    st.session_state["model"] = load_model()
+model = st.session_state["model"]
 
 # === Scikit-learn Nearest Neighbors Index ===
 nn_model = NearestNeighbors(n_neighbors=30, metric="cosine")
@@ -414,3 +425,9 @@ elif menu == "About":
     - 2408207010022 – Luthfi Fathurahman
     - 2408207010024 – Teuku Nanda Saputra
     """)
+
+# === Tombol Reset Session di Sidebar ===
+if st.sidebar.button("🔄 Reset Session"):
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.experimental_rerun()
