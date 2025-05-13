@@ -2,6 +2,7 @@ import os
 import psutil
 import time
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
+os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
 
 import streamlit as st
 st.set_page_config(layout="wide")  # <-- harus paling atas
