@@ -1,5 +1,9 @@
 import streamlit as st
-st.set_page_config(layout="wide")  # <-- harus paling atas
+st.set_page_config(layout="wide")
+
+import sys
+import types
+sys.modules['torch.classes'] = types.SimpleNamespace()
 
 import os
 import requests
