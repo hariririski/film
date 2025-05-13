@@ -28,7 +28,32 @@ TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 HF_EMBEDDING_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/rich_movie_embeddings.pkl"
 
 os.makedirs(DATASET_PATH, exist_ok=True)
+# === Tambahkan ini ke dalam kode kamu, sebelum `prepare_files()` dipanggil ===
 
+# Fungsi download dari Google Drive untuk file .parquet
+
+def download_from_gdrive(file_id, dest_path):
+    URL = "https://docs.google.com/uc?export=download"
+    session = requests.Session()
+    response = session.get(URL, params={'id': file_id}, stream=True)
+    token = get_confirm_token(response)
+    if token:
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+    save_response_content(response, dest_path)
+
+def get_confirm_token(response):
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+    return None
+
+def save_response_content(response, destination, chunk_size=32768):
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(chunk_size):
+            if chunk:
+                f.write(chunk)
+                
 # === Unduh File dari Google Drive ===
 def download_from_huggingface(url, dest_path):
     response = requests.get(url, stream=True)
@@ -75,6 +100,8 @@ def prepare_files():
     if not os.path.exists(MOVIE_FILE):
         with st.spinner("📦 Mengunduh dataset..."):
             download_from_gdrive("1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT", MOVIE_FILE)
+
+
 
 prepare_files()
 
