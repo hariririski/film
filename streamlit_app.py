@@ -107,12 +107,27 @@ def prepare_files():
 
 prepare_files()
 
+# === Sidebar Navigasi ===
+menu = st.sidebar.radio("Menu Halaman", ("Rekomendasi", "Dashboard", "About"))
+
+# Bersihkan cache hasil pencarian dan dataset jika berpindah menu
+prev_menu = st.session_state.get("prev_menu", None)
+if prev_menu != menu:
+    st.session_state["prev_menu"] = menu
+    if "results" in st.session_state:
+        del st.session_state["results"]
+    if "df_movies" in st.session_state:
+        del st.session_state["df_movies"]
+
 # === Load Dataset ===
 @st.cache_data
 def load_data():
     return pd.read_parquet(MOVIE_FILE)
 
-df_movies = load_data()
+if menu in ["Rekomendasi", "Dashboard", "About"]:
+    if "df_movies" not in st.session_state:
+        st.session_state["df_movies"] = load_data()
+    df_movies = st.session_state["df_movies"]
 
 # === Load Model & Embedding ===
 @st.cache_resource
@@ -172,10 +187,6 @@ def search_bert(query, top_n=10, genre=None, min_year=None, max_year=None, min_r
     return results
 
 
-# === Sidebar Navigasi ===
-menu = st.sidebar.radio("Menu Halaman", ("Rekomendasi", "Dashboard", "About"))
-
-
 # === Halaman Detail Film ===
 query_params = st.query_params
 if "movie_id" in query_params:
@@ -192,6 +203,18 @@ if "movie_id" in query_params:
     st.markdown(f"**Sinopsis:** {translate_text(sinopsis)}")
     if st.button("🔙 Kembali"):
         st.query_params.clear()
+    st.stop()
+
+if menu == "Dashboard" and "df_movies" not in st.session_state:
+    st.warning("Data belum dimuat.")
+    st.stop()
+
+if menu == "Rekomendasi" and "df_movies" not in st.session_state:
+    st.warning("Data belum dimuat.")
+    st.stop()
+
+if menu == "About" and "df_movies" not in st.session_state:
+    st.warning("Data belum dimuat.")
     st.stop()
 
 # === Halaman Rekomendasi ===
