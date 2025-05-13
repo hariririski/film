@@ -1,4 +1,6 @@
 import streamlit as st
+st.set_page_config(layout="wide")  # <-- harus paling atas
+
 import os
 import requests
 import pandas as pd
@@ -53,7 +55,7 @@ def save_response_content(response, destination, chunk_size=32768):
         for chunk in response.iter_content(chunk_size):
             if chunk:
                 f.write(chunk)
-                
+
 # === Unduh File dari Google Drive ===
 def download_from_huggingface(url, dest_path):
     response = requests.get(url, stream=True)
@@ -171,7 +173,6 @@ def search_bert(query, top_n=10, genre=None, min_year=None, max_year=None, min_r
 
 
 # === Sidebar Navigasi ===
-st.set_page_config(layout="wide")
 menu = st.sidebar.radio("Menu Halaman", ("Rekomendasi", "Dashboard", "About"))
 
 
