@@ -4,8 +4,5 @@ gdown
 matplotlib
 pandas
 gdown
-
-
-torch==2.1.2
-sentence-transformers==2.2.2
-streamlit==1.32.2
+sentence-transformers
+streamlit
