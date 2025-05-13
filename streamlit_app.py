@@ -1,9 +1,5 @@
 import streamlit as st
-st.set_page_config(layout="wide")
-
-import sys
-import types
-sys.modules['torch.classes'] = types.SimpleNamespace()
+st.set_page_config(layout="wide")  # <-- harus paling atas
 
 import os
 import requests
@@ -200,14 +196,6 @@ if "movie_id" in query_params:
 
 # === Halaman Rekomendasi ===
 
-prev_menu = st.session_state.get("prev_menu")
-
-if prev_menu and prev_menu != menu:
-    # Reset session state saat berpindah menu
-    st.session_state.pop("results", None)
-    st.session_state.pop("loading", None)
-
-st.session_state["prev_menu"] = menu
 
 if menu == "Rekomendasi":
     st.title("\U0001F3AC Rekomendasi Film IMDb (BERT-Based)")
@@ -385,7 +373,7 @@ elif menu == "Dashboard":
 
 # === Halaman About ===
 elif menu == "About":
-    st.write("📌 Memuat halaman About...")  # Debug
+    
     st.title("ℹ️ Tentang Aplikasi")
     st.markdown("""
     Aplikasi ini dibuat sebagai bagian dari proyek mata kuliah **Pengembangan Perangkat Lunak dan Manajemen Proyek** pada program studi **Magister Kecerdasan Buatan**.
@@ -403,8 +391,3 @@ elif menu == "About":
     - 2408207010022 – Luthfi Fathurahman
     - 2408207010024 – Teuku Nanda Saputra
     """)
-
-if st.sidebar.button("🔁 Reset Aplikasi"):
-    st.cache_data.clear()
-    st.cache_resource.clear()
-    st.experimental_rerun()
