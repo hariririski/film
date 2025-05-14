@@ -17,11 +17,10 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 from huggingface_hub import snapshot_download
 
-# === Konfigurasi Google Drive File IDs ===
-DRIVE_IDS = {
-    "embedding": "1JSe5M7qgCfINDt9sXDxptAsEtjs4ppzD",
-    "dataset": "1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT",
-}
+# === Konfigurasi HuggingFace URL ===
+HF_EMBEDDING_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/rich_movie_embeddings.pkl"
+HF_PARQUET_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/imdb_tmdb_Sempurna.parquet"
+HF_MODEL_ZIP_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/multilingual_bert.zip"
 
 DATASET_PATH = "imdb/"
 MODEL_PATH = os.path.join(DATASET_PATH, "multilingual_bert/")
@@ -31,37 +30,11 @@ MOVIE_FILE = os.path.join(DATASET_PATH, "imdb_tmdb_Sempurna.parquet")
 TMDB_API_KEY = "1ec75235bb4ad6c9a7d6b6b8eac6d44e"
 PLACEHOLDER_IMAGE = "https://www.jakartaplayers.org/uploads/1/2/5/5/12551960/9585972.jpg?1453219647"
 TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
-# === Konfigurasi HuggingFace URL ===
-HF_EMBEDDING_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/rich_movie_embeddings.pkl"
 
 os.makedirs(DATASET_PATH, exist_ok=True)
-# === Tambahkan ini ke dalam kode kamu, sebelum `prepare_files()` dipanggil ===
 
-# Fungsi download dari Google Drive untuk file .parquet
+# Fungsi unduh dari HuggingFace
 
-def download_from_gdrive(file_id, dest_path):
-    URL = "https://docs.google.com/uc?export=download"
-    session = requests.Session()
-    response = session.get(URL, params={'id': file_id}, stream=True)
-    token = get_confirm_token(response)
-    if token:
-        params = {'id': file_id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True)
-    save_response_content(response, dest_path)
-
-def get_confirm_token(response):
-    for key, value in response.cookies.items():
-        if key.startswith('download_warning'):
-            return value
-    return None
-
-def save_response_content(response, destination, chunk_size=32768):
-    with open(destination, "wb") as f:
-        for chunk in response.iter_content(chunk_size):
-            if chunk:
-                f.write(chunk)
-
-# === Unduh File dari Google Drive ===
 def download_from_huggingface(url, dest_path):
     response = requests.get(url, stream=True)
     if response.status_code == 200:
@@ -69,64 +42,50 @@ def download_from_huggingface(url, dest_path):
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
     else:
-        st.error("❌ Gagal mengunduh dari HuggingFace.")
+        st.error(f"❌ Gagal mengunduh dari HuggingFace: {url}")
         st.stop()
-
-def get_confirm_token(response):
-    for key, value in response.cookies.items():
-        if key.startswith('download_warning'):
-            return value
-    return None
-
-def save_response_content(response, destination, chunk_size=32768):
-    with open(destination, "wb") as f:
-        for chunk in response.iter_content(chunk_size):
-            if chunk:
-                f.write(chunk)
 
 # === Ekstrak dan Siapkan File ===
 @st.cache_resource
 def prepare_files():
     os.makedirs(MODEL_PATH, exist_ok=True)
 
-    # === Unduh model dari HuggingFace jika belum ada ===
+    # === Download ZIP dan ekstrak jika model belum ada ===
     if not os.path.exists(os.path.join(MODEL_PATH, "config.json")):
-        with st.spinner("📥 Mengunduh model dari HuggingFace (±1–2 menit)..."):
-            snapshot_download(
-                repo_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-                local_dir=MODEL_PATH
-            )
-        st.success("✅ Model berhasil diunduh dan siap digunakan.")
+        zip_path = os.path.join(DATASET_PATH, "multilingual_bert.zip")
+        with st.spinner("📥 Mengunduh model ZIP dari HuggingFace..."):
+            download_from_huggingface(HF_MODEL_ZIP_URL, zip_path)
+            import zipfile
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(MODEL_PATH)
+        st.success("✅ Model berhasil diunduh dan diekstrak.")
 
-    # === Download rich_movie_embeddings.pkl dari HuggingFace (bukan Google Drive) ===
     if not os.path.exists(BERT_PKL):
         with st.spinner("📦 Mengunduh embedding dari HuggingFace..."):
             download_from_huggingface(HF_EMBEDDING_URL, BERT_PKL)
 
-    # === Dataset (boleh tetap dari Google Drive) ===
     if not os.path.exists(MOVIE_FILE):
-        with st.spinner("📦 Mengunduh dataset..."):
-            download_from_gdrive("1azl-WiLcQ3bGoRJt_j9f18Ey4OPT2iZT", MOVIE_FILE)
-
-
+        with st.spinner("📦 Mengunduh dataset parquet dari HuggingFace..."):
+            download_from_huggingface(HF_PARQUET_URL, MOVIE_FILE)
 
 prepare_files()
 
 # === Sidebar Navigasi ===
 menu = st.sidebar.radio("Menu Halaman", ("Rekomendasi", "Dashboard", "About"))
+
 # === RAM Usage Sidebar Info ===
 def display_ram_usage():
     process = psutil.Process(os.getpid())
     mem_mb = process.memory_info().rss / 1024 / 1024
     st.sidebar.markdown(f"🧠 RAM digunakan: `{mem_mb:.2f} MB`")
 
-# Jalankan setiap 5 detik
 if "last_ram_check" not in st.session_state:
     st.session_state["last_ram_check"] = time.time()
 
 if time.time() - st.session_state["last_ram_check"] > 5:
     display_ram_usage()
     st.session_state["last_ram_check"] = time.time()
+
 
 # Bersihkan cache hasil pencarian dan dataset jika berpindah menu
 prev_menu = st.session_state.get("prev_menu", None)
