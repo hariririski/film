@@ -16,6 +16,7 @@ from deep_translator import GoogleTranslator
 import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 from huggingface_hub import snapshot_download
+import zipfile
 
 # === Konfigurasi HuggingFace URL ===
 HF_EMBEDDING_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/rich_movie_embeddings.pkl"
@@ -33,8 +34,7 @@ TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
 os.makedirs(DATASET_PATH, exist_ok=True)
 
-# Fungsi unduh dari HuggingFace
-
+# === Fungsi unduh dari HuggingFace ===
 def download_from_huggingface(url, dest_path):
     response = requests.get(url, stream=True)
     if response.status_code == 200:
@@ -50,12 +50,11 @@ def download_from_huggingface(url, dest_path):
 def prepare_files():
     os.makedirs(MODEL_PATH, exist_ok=True)
 
-    # === Download ZIP dan ekstrak jika model belum ada ===
+    # === Unduh ZIP dan ekstrak jika model belum ada ===
     if not os.path.exists(os.path.join(MODEL_PATH, "config.json")):
         zip_path = os.path.join(DATASET_PATH, "multilingual_bert.zip")
         with st.spinner("📥 Mengunduh model ZIP dari HuggingFace..."):
             download_from_huggingface(HF_MODEL_ZIP_URL, zip_path)
-            import zipfile
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(MODEL_PATH)
         st.success("✅ Model berhasil diunduh dan diekstrak.")
