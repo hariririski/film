@@ -16,15 +16,12 @@ from deep_translator import GoogleTranslator
 import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 from huggingface_hub import snapshot_download
-import zipfile
 
-# === Konfigurasi HuggingFace URL ===
 HF_EMBEDDING_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/rich_movie_embeddings.pkl"
 HF_PARQUET_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/imdb_tmdb_Sempurna.parquet"
-HF_MODEL_ZIP_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/multilingual_bert.zip"
 
 DATASET_PATH = "imdb/"
-MODEL_PATH = os.path.join(DATASET_PATH, "multilingual_bert/")
+MODEL_PATH = os.path.join(DATASET_PATH, "paraphrase-multilingual-MiniLM-L12-v2")
 BERT_PKL = os.path.join(DATASET_PATH, "rich_movie_embeddings.pkl")
 MOVIE_FILE = os.path.join(DATASET_PATH, "imdb_tmdb_Sempurna.parquet")
 
@@ -50,14 +47,15 @@ def download_from_huggingface(url, dest_path):
 def prepare_files():
     os.makedirs(MODEL_PATH, exist_ok=True)
 
-    # === Unduh ZIP dan ekstrak jika model belum ada ===
+    # === Unduh model dari HuggingFace snapshot jika belum ada ===
     if not os.path.exists(os.path.join(MODEL_PATH, "config.json")):
-        zip_path = os.path.join(DATASET_PATH, "multilingual_bert.zip")
-        with st.spinner("📥 Mengunduh model ZIP dari HuggingFace..."):
-            download_from_huggingface(HF_MODEL_ZIP_URL, zip_path)
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(MODEL_PATH)
-        st.success("✅ Model berhasil diunduh dan diekstrak.")
+        with st.spinner("📥 Mengunduh model dari HuggingFace..."):
+            snapshot_download(
+                repo_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+                local_dir=MODEL_PATH,
+                local_dir_use_symlinks=False
+            )
+        st.success("✅ Model berhasil diunduh dan siap digunakan.")
 
     if not os.path.exists(BERT_PKL):
         with st.spinner("📦 Mengunduh embedding dari HuggingFace..."):
