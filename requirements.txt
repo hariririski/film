@@ -9,4 +9,5 @@ streamlit
 psutil
 streamlit
 torch
+huggingface_hub[hf_xet]
 hf_xet
