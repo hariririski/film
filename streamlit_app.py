@@ -20,8 +20,10 @@ from huggingface_hub import snapshot_download
 HF_EMBEDDING_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/rich_movie_embeddings.pkl"
 HF_PARQUET_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/imdb_tmdb_Sempurna.parquet"
 
+HF_MODEL_ZIP_URL = "https://huggingface.co/datasets/hariririski/rich_movie_embeddings/resolve/main/multilingual_bert.zip"
+
 DATASET_PATH = "imdb/"
-MODEL_PATH = os.path.join(DATASET_PATH, "paraphrase-multilingual-MiniLM-L12-v2")
+MODEL_PATH = os.path.join(DATASET_PATH, "multilingual_bert")  # konsisten nama folder
 BERT_PKL = os.path.join(DATASET_PATH, "rich_movie_embeddings.pkl")
 MOVIE_FILE = os.path.join(DATASET_PATH, "imdb_tmdb_Sempurna.parquet")
 
@@ -47,15 +49,33 @@ def download_from_huggingface(url, dest_path):
 def prepare_files():
     os.makedirs(MODEL_PATH, exist_ok=True)
 
-    # === Unduh model dari HuggingFace snapshot jika belum ada ===
+    zip_path = os.path.join(DATASET_PATH, "multilingual_bert.zip")
+
+    # === Unduh ZIP dan ekstrak jika model belum ada ===
     if not os.path.exists(os.path.join(MODEL_PATH, "config.json")):
-        with st.spinner("📥 Mengunduh model dari HuggingFace..."):
-            snapshot_download(
-                repo_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-                local_dir=MODEL_PATH,
-                local_dir_use_symlinks=False
-            )
-        st.success("✅ Model berhasil diunduh dan siap digunakan.")
+        with st.spinner("📥 Mengunduh model ZIP dari HuggingFace..."):
+            download_from_huggingface(HF_MODEL_ZIP_URL, zip_path)
+            import zipfile
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                # Cek struktur ZIP: jika ada subfolder, ekstrak isinya ke MODEL_PATH tanpa subfolder
+                zip_names = zip_ref.namelist()
+                # Cari prefix folder jika semua file ada di subfolder
+                prefix = None
+                if all("/" in name for name in zip_names):
+                    # Ambil prefix folder terluar
+                    prefix = os.path.commonprefix(zip_names)
+                    if prefix and not prefix.endswith("/"):
+                        prefix = prefix[:prefix.rfind("/")+1]
+                if prefix:
+                    for member in zip_names:
+                        if member.endswith("/"): continue
+                        target_path = os.path.join(MODEL_PATH, member[len(prefix):])
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        with zip_ref.open(member) as source, open(target_path, "wb") as target:
+                            target.write(source.read())
+                else:
+                    zip_ref.extractall(MODEL_PATH)
+        st.success("✅ Model berhasil diunduh dan diekstrak.")
 
     if not os.path.exists(BERT_PKL):
         with st.spinner("📦 Mengunduh embedding dari HuggingFace..."):
